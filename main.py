@@ -11,6 +11,7 @@ if sys.stderr is None:
     sys.stderr = open(os.devnull, "w")
 
 import logging
+import logging.handlers
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
@@ -28,13 +29,21 @@ from datetime import datetime, timedelta
 BASE_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 LOG_PATH = os.path.join(BASE_DIR, "app.log")
 
-logging.basicConfig(
-    filename=LOG_PATH,
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
+# RotatingFileHandler: quando o app.log chega em 5 MB, ele vira
+# app.log.1, app.log.2... até 3 arquivos antigos. O mais velho é
+# descartado. Assim o log nunca cresce sem limite, mesmo rodando
+# indefinidamente.
+_handler = logging.handlers.RotatingFileHandler(
+    LOG_PATH,
+    maxBytes=5 * 1024 * 1024,  # 5 MB por arquivo
+    backupCount=3,
     encoding="utf-8"
 )
+_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+
 logger = logging.getLogger("glpi_whats_notifier")
+logger.setLevel(logging.INFO)
+logger.addHandler(_handler)
 
 # Carrega o .env de dentro da pasta do script/exe, não do diretório de trabalho atual
 load_dotenv(os.path.join(BASE_DIR, ".env"))
