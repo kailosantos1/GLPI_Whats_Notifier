@@ -23,7 +23,14 @@ EVOLUTION_INSTANCE = os.getenv("EVOLUTION_INSTANCE")
 GRUPO_TI_ID = int(os.getenv("GRUPO_TI_ID", "9"))
 WHATS_GRUPO_TI = os.getenv("WHATS_GRUPO_TI")
 
-BOT_USER_ID = 282
+# IDs dos bots que precisam ser IGNORADOS como requerente.
+# Vem do .env como "282,286" (separado por vírgula).
+# 282 = bot.teams / 286 = bot.email
+BOTS_USER_IDS = {
+    int(x.strip())
+    for x in os.getenv("BOTS_USER_IDS", "282,286").split(",")
+    if x.strip()
+}
 
 ultimos_chamados = []
 
@@ -94,6 +101,7 @@ def buscar_requerente_com_retry(ticket_id, max_tentativas=10, intervalo=3):
     """
     Busca o requerente com retry em background.
     Tenta 10 vezes com 3 segundos de intervalo (30 segundos total).
+    Ignora qualquer ator que esteja em BOTS_USER_IDS.
     """
     session_token = criar_sessao_glpi()
     
@@ -114,17 +122,17 @@ def buscar_requerente_com_retry(ticket_id, max_tentativas=10, intervalo=3):
                 atores = response.json()
                 
                 if isinstance(atores, list):
-                    # Procura type=1 que NÃO seja o bot
+                    # Procura type=1 que NÃO seja nenhum dos bots
                     for ator in atores:
                         if isinstance(ator, dict):
                             user_id = ator.get("users_id")
                             tipo = ator.get("type")
                             
-                            if tipo == 1 and user_id != BOT_USER_ID:
+                            if tipo == 1 and user_id not in BOTS_USER_IDS:
                                 print(f"✅ Requerente real encontrado: ID={user_id}")
                                 return user_id
                     
-                    print(f"⚠️ Só tem Bot Teams. Aguardando...")
+                    print(f"⚠️ Só tem bots como requerente. Aguardando...")
             
         except Exception as e:
             print(f"Erro na tentativa {tentativa}: {e}")
